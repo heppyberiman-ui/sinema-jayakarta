@@ -1,0 +1,355 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daftar Film - Sinema Jayakarta</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f4f5f7;
+        color: #333;
+      }
+      header {
+        background: #2c3e50;
+        color: white;
+        padding: 24px 16px;
+        text-align: center;
+      }
+      .container {
+        max-width: 1080px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      .search-box {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 24px;
+      }
+      .search-box input {
+        flex: 1;
+        padding: 12px 14px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        font-size: 16px;
+      }
+      .search-box button {
+        padding: 12px 16px;
+        border: none;
+        background: #3498db;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      .search-box button:hover {
+        background: #2980b9;
+      }
+      .movie-list {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      }
+      .movie-card {
+        background: white;
+        border-radius: 14px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .movie-card img {
+        width: 100%;
+        height: 280px;
+        object-fit: cover;
+        background: #ddd;
+      }
+      .movie-card .info {
+        padding: 16px;
+      }
+      .movie-card h2 {
+        margin: 0 0 10px;
+        font-size: 20px;
+      }
+      .movie-card p {
+        margin: 4px 0;
+        color: #555;
+      }
+      .edit-btn {
+        background: #e74c3c;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+      .edit-btn:hover {
+        background: #c0392b;
+      }
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.4);
+      }
+      .modal-content {
+        background-color: #fefefe;
+        margin: 15% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 80%;
+        max-width: 500px;
+        border-radius: 8px;
+      }
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+      .close:hover {
+        color: black;
+      }
+      .modal form {
+        display: flex;
+        flex-direction: column;
+      }
+      .modal label {
+        margin-top: 10px;
+        font-weight: bold;
+      }
+      .modal input,
+      .modal textarea {
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .modal textarea {
+        resize: vertical;
+        min-height: 100px;
+      }
+      .modal button {
+        margin-top: 15px;
+        padding: 10px;
+        background: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .modal button:hover {
+        background: #2980b9;
+      }
+      .message {
+        padding: 36px 0;
+        text-align: center;
+        color: #555;
+      }
+      .footer {
+        text-align: center;
+        color: #777;
+        margin: 40px 0 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Sinema Jayakarta</h1>
+      <p>Cari film yang sudah terdaftar di daftar film.</p>
+    </header>
+    <main class="container">
+      <div class="search-box">
+        <input
+          id="searchInput"
+          type="search"
+          placeholder="Cari judul, genre, atau tahun..."
+        />
+        <button id="searchButton">Cari</button>
+      </div>
+      <div id="movieContainer" class="movie-list"></div>
+      <div id="message" class="message"></div>
+    </main>
+    <footer class="footer">
+      <small>Gunakan kotak pencarian untuk menemukan film.</small>
+    </footer>
+
+    <!-- Modal Edit -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Edit Film</h2>
+        <form id="editForm">
+          <input type="hidden" id="editId" />
+          <label for="editJudul">Judul:</label>
+          <input type="text" id="editJudul" required />
+
+          <label for="editGenre">Genre:</label>
+          <input type="text" id="editGenre" required />
+
+          <label for="editTahun">Tahun:</label>
+          <input type="number" id="editTahun" required />
+
+          <label for="editSinopsis">Sinopsis:</label>
+          <textarea id="editSinopsis"></textarea>
+
+          <button type="submit">Update Film</button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = "http://localhost:5000";
+      const movieContainer = document.getElementById("movieContainer");
+      const message = document.getElementById("message");
+      const searchInput = document.getElementById("searchInput");
+      const searchButton = document.getElementById("searchButton");
+
+      const renderMovies = (movies) => {
+        movieContainer.innerHTML = "";
+        if (!movies || movies.length === 0) {
+          message.textContent =
+            "Film tidak ditemukan. Coba kata kunci lain atau kosongkan pencarian.";
+          return;
+        }
+        message.textContent = `Menampilkan ${movies.length} film.`;
+        movies.forEach((movie) => {
+          const card = document.createElement("article");
+          card.className = "movie-card";
+
+          const imageUrl = movie.image
+            ? movie.image.startsWith("http")
+              ? movie.image
+              : `${API_BASE}/uploads/${movie.image}`
+            : "https://via.placeholder.com/500x280?text=No+Image";
+
+          card.innerHTML = `
+          <img src="${imageUrl}" alt="${movie.judul}" />
+          <div class="info">
+            <h2>${movie.judul}</h2>
+            <p><strong>Genre:</strong> ${movie.genre}</p>
+            <p><strong>Tahun:</strong> ${movie.tahun}</p>
+            <p><strong>Sinopsis:</strong> ${movie.sinopsis || "Tidak ada sinopsis"}</p>
+            <button class="edit-btn" data-id="${movie.id_film}">Edit</button>
+          </div>
+        `;
+
+          movieContainer.appendChild(card);
+        });
+      };
+
+      const loadMovies = async (query = "") => {
+        movieContainer.innerHTML = "";
+        message.textContent = "Memuat daftar film...";
+        const params = query ? `?q=${encodeURIComponent(query)}` : "";
+        try {
+          const response = await fetch(`${API_BASE}/api/movies${params}`);
+          const result = await response.json();
+          if (result.status === "success") {
+            renderMovies(result.data);
+          } else {
+            message.textContent = "Terjadi kesalahan saat memuat film.";
+          }
+        } catch (error) {
+          message.textContent = "Tidak dapat terhubung ke server.";
+        }
+      };
+
+      searchButton.addEventListener("click", () => {
+        loadMovies(searchInput.value.trim());
+      });
+
+      searchInput.addEventListener("keypress", (event) => {
+        if (event.key === "Enter") {
+          loadMovies(searchInput.value.trim());
+        }
+      });
+
+      loadMovies();
+    </script>
+
+    <script>
+      // Modal functionality
+      const modal = document.getElementById("editModal");
+      const closeBtn = document.querySelector(".close");
+      const editForm = document.getElementById("editForm");
+
+      // Event listener for edit buttons
+      document.addEventListener("click", (e) => {
+        if (e.target.classList.contains("edit-btn")) {
+          const movieId = e.target.getAttribute("data-id");
+          openEditModal(movieId);
+        }
+      });
+
+      // Close modal
+      closeBtn.onclick = () => {
+        modal.style.display = "none";
+      };
+
+      window.onclick = (event) => {
+        if (event.target == modal) {
+          modal.style.display = "none";
+        }
+      };
+
+      // Open edit modal and load movie data
+      async function openEditModal(movieId) {
+        try {
+          const response = await fetch(`${API_BASE}/api/movies/${movieId}`);
+          const result = await response.json();
+          if (result.status === "success") {
+            const movie = result.data;
+            document.getElementById("editId").value = movie.id_film;
+            document.getElementById("editJudul").value = movie.judul;
+            document.getElementById("editGenre").value = movie.genre;
+            document.getElementById("editTahun").value = movie.tahun;
+            document.getElementById("editSinopsis").value =
+              movie.sinopsis || "";
+            modal.style.display = "block";
+          }
+        } catch (error) {
+          alert("Gagal memuat data film");
+        }
+      }
+
+      // Handle form submit
+      editForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const movieId = document.getElementById("editId").value;
+        const judul = document.getElementById("editJudul").value;
+        const genre = document.getElementById("editGenre").value;
+        const tahun = document.getElementById("editTahun").value;
+        const sinopsis = document.getElementById("editSinopsis").value;
+
+        try {
+          const response = await fetch(`${API_BASE}/api/movies/${movieId}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ judul, genre, tahun, sinopsis }),
+          });
+          const result = await response.json();
+          if (result.status === "success") {
+            alert("Film berhasil diupdate!");
+            modal.style.display = "none";
+            loadMovies(); // Reload the movie list
+          } else {
+            alert("Gagal update film: " + result.message);
+          }
+        } catch (error) {
+          alert("Terjadi kesalahan saat update film");
+        }
+      });
+    </script>
+  </body>
+</html>
